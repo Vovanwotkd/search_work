@@ -2,6 +2,8 @@
 import { ref } from 'vue'
 import { useVacanciesStore } from '@/stores/vacancies'
 import { resumesApi } from '@/api/resumes'
+import { vacanciesApi } from '@/api/vacancies'
+import type { Vacancy } from '@/types'
 
 const vacanciesStore = useVacanciesStore()
 
@@ -9,6 +11,8 @@ const searchText = ref('')
 const area = ref('')
 const analyzing = ref<number | null>(null)
 const creating = ref<number | null>(null)
+const selectedVacancy = ref<Vacancy | null>(null)
+const loadingDetail = ref(false)
 
 async function handleSearch() {
   await vacanciesStore.search({
@@ -48,6 +52,24 @@ function formatSalary(from: number | null, to: number | null, currency: string |
   if (from) parts.push(`от ${from.toLocaleString()}`)
   if (to) parts.push(`до ${to.toLocaleString()}`)
   return parts.join(' ') + (currency ? ` ${currency}` : '')
+}
+
+async function openVacancy(vacancy: Vacancy) {
+  loadingDetail.value = true
+  selectedVacancy.value = vacancy
+  try {
+    // Fetch full details from API
+    const fullVacancy = await vacanciesApi.getById(vacancy.id)
+    selectedVacancy.value = fullVacancy
+  } catch (error) {
+    console.error('Failed to load vacancy details:', error)
+  } finally {
+    loadingDetail.value = false
+  }
+}
+
+function closeVacancy() {
+  selectedVacancy.value = null
 }
 </script>
 
@@ -99,7 +121,7 @@ function formatSalary(from: number | null, to: number | null, currency: string |
             </span>
           </div>
           <div class="vacancy-info">
-            <h3 class="vacancy-title">{{ vacancy.title }}</h3>
+            <h3 class="vacancy-title" @click="openVacancy(vacancy)">{{ vacancy.title }}</h3>
             <p class="vacancy-company">{{ vacancy.company_name }}</p>
           </div>
         </div>
@@ -135,6 +157,72 @@ function formatSalary(from: number | null, to: number | null, currency: string |
 
     <div v-if="!vacanciesStore.loading && !vacanciesStore.vacancies.length" class="empty-state">
       <p>Введите поисковый запрос чтобы найти вакансии</p>
+    </div>
+
+    <!-- Vacancy Detail Modal -->
+    <div v-if="selectedVacancy" class="modal-overlay" @click.self="closeVacancy">
+      <div class="modal-content">
+        <button class="modal-close" @click="closeVacancy">&times;</button>
+
+        <div v-if="loadingDetail" class="modal-loading">
+          Загрузка...
+        </div>
+
+        <div v-else class="vacancy-detail">
+          <h2 class="detail-title">{{ selectedVacancy.title }}</h2>
+          <p class="detail-company">{{ selectedVacancy.company_name }}</p>
+
+          <div class="detail-meta">
+            <div class="meta-item">
+              <span class="meta-label">Зарплата:</span>
+              <span>{{ formatSalary(selectedVacancy.salary_from, selectedVacancy.salary_to, selectedVacancy.salary_currency) }}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Локация:</span>
+              <span>{{ selectedVacancy.location || 'Не указана' }}</span>
+            </div>
+            <div class="meta-item" v-if="selectedVacancy.experience">
+              <span class="meta-label">Опыт:</span>
+              <span>{{ selectedVacancy.experience }}</span>
+            </div>
+            <div class="meta-item" v-if="selectedVacancy.employment_type">
+              <span class="meta-label">Тип занятости:</span>
+              <span>{{ selectedVacancy.employment_type }}</span>
+            </div>
+          </div>
+
+          <div v-if="selectedVacancy.key_skills && selectedVacancy.key_skills.length" class="detail-skills">
+            <h4>Ключевые навыки</h4>
+            <div class="skills-list">
+              <span v-for="skill in selectedVacancy.key_skills" :key="skill" class="skill-tag">
+                {{ skill }}
+              </span>
+            </div>
+          </div>
+
+          <div v-if="selectedVacancy.description" class="detail-description">
+            <h4>Описание</h4>
+            <div v-html="selectedVacancy.description"></div>
+          </div>
+
+          <div class="detail-actions">
+            <button class="secondary" @click="handleAnalyze(selectedVacancy.id); closeVacancy()">
+              Анализировать
+            </button>
+            <button class="primary" @click="handleCreateResume(selectedVacancy.id); closeVacancy()">
+              Создать резюме
+            </button>
+            <a
+              v-if="selectedVacancy.hh_vacancy_id"
+              :href="`https://hh.ru/vacancy/${selectedVacancy.hh_vacancy_id}`"
+              target="_blank"
+              class="hh-link"
+            >
+              Открыть на HH.ru
+            </a>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -234,6 +322,12 @@ function formatSalary(from: number | null, to: number | null, currency: string |
   font-size: 18px;
   font-weight: 600;
   margin-bottom: 4px;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.vacancy-title:hover {
+  color: var(--primary);
 }
 
 .vacancy-company {
@@ -271,5 +365,166 @@ function formatSalary(from: number | null, to: number | null, currency: string |
   text-align: center;
   padding: 60px 20px;
   color: var(--text-secondary);
+}
+
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 12px;
+  max-width: 800px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  position: relative;
+  padding: 32px;
+}
+
+.modal-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: none;
+  border: none;
+  font-size: 28px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  line-height: 1;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+}
+
+.modal-close:hover {
+  color: var(--text-primary);
+}
+
+.modal-loading {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-secondary);
+}
+
+.vacancy-detail {
+  padding-right: 20px;
+}
+
+.detail-title {
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  padding-right: 32px;
+}
+
+.detail-company {
+  font-size: 16px;
+  color: var(--text-secondary);
+  margin-bottom: 24px;
+}
+
+.detail-meta {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 24px;
+  padding: 16px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+}
+
+.meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.meta-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+}
+
+.detail-skills {
+  margin-bottom: 24px;
+}
+
+.detail-skills h4 {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.skills-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.skill-tag {
+  display: inline-block;
+  padding: 6px 12px;
+  background: var(--bg-secondary);
+  border-radius: 16px;
+  font-size: 13px;
+}
+
+.detail-description {
+  margin-bottom: 24px;
+}
+
+.detail-description h4 {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.detail-description :deep(p) {
+  margin-bottom: 12px;
+  line-height: 1.6;
+}
+
+.detail-description :deep(ul),
+.detail-description :deep(ol) {
+  margin-bottom: 12px;
+  padding-left: 20px;
+}
+
+.detail-description :deep(li) {
+  margin-bottom: 4px;
+  line-height: 1.5;
+}
+
+.detail-actions {
+  display: flex;
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.hh-link {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 16px;
+  color: var(--primary);
+  text-decoration: none;
+  font-size: 14px;
+  margin-left: auto;
+}
+
+.hh-link:hover {
+  text-decoration: underline;
 }
 </style>

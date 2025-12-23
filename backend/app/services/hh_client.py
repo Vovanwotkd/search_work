@@ -56,6 +56,8 @@ class HHClient:
                 data={
                     "grant_type": "refresh_token",
                     "refresh_token": refresh_token,
+                    "client_id": settings.hh_client_id,
+                    "client_secret": settings.hh_client_secret,
                 },
             )
             response.raise_for_status()

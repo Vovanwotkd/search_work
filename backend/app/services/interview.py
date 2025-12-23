@@ -2,7 +2,7 @@ import logging
 from datetime import datetime
 from sqlalchemy.orm import Session
 
-from app.models import InterviewSession, UserProfile, User
+from app.models import InterviewSession, UserProfile, User, AppSettings
 from app.services.llm import get_llm_service, LLMMessage
 from app.services.llm.prompts import (
     INTERVIEW_SYSTEM_PROMPT,
@@ -11,6 +11,12 @@ from app.services.llm.prompts import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def get_setting(db: Session, key: str) -> str | None:
+    """Get setting value from database."""
+    setting = db.query(AppSettings).filter(AppSettings.key == key).first()
+    return setting.value if setting else None
 
 
 class InterviewService:
@@ -35,13 +41,16 @@ class InterviewService:
         if session:
             return session
 
+        # Get custom first message or use default
+        first_message = get_setting(self.db, "prompt_interview_first") or INTERVIEW_FIRST_MESSAGE
+
         # Create new session with first message
         session = InterviewSession(
             user_id=user_id,
             messages=[
                 {
                     "role": "assistant",
-                    "content": INTERVIEW_FIRST_MESSAGE,
+                    "content": first_message,
                     "timestamp": datetime.utcnow().isoformat(),
                 }
             ],
@@ -66,8 +75,9 @@ class InterviewService:
             }
         )
 
-        # Build LLM messages
-        llm_messages = [LLMMessage(role="system", content=INTERVIEW_SYSTEM_PROMPT)]
+        # Build LLM messages with custom or default system prompt
+        system_prompt = get_setting(self.db, "prompt_interview_system") or INTERVIEW_SYSTEM_PROMPT
+        llm_messages = [LLMMessage(role="system", content=system_prompt)]
         for msg in messages:
             llm_messages.append(LLMMessage(role=msg["role"], content=msg["content"]))
 

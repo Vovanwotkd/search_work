@@ -34,3 +34,29 @@ export const vacanciesApi = {
     return response.data
   },
 }
+
+export interface HHResume {
+  id: string
+  title: string
+  status: string
+  created_at: string
+  updated_at: string
+  url: string
+  total_views: number
+}
+
+export const hhApi = {
+  async getMyResumes(): Promise<{ resumes: HHResume[] }> {
+    const response = await apiClient.get('/api/hh/resumes/mine')
+    return response.data
+  },
+
+  async importResume(resumeId: string): Promise<{
+    message: string
+    resume_id: number
+    title: string
+  }> {
+    const response = await apiClient.post(`/api/hh/resumes/${resumeId}/import`)
+    return response.data
+  },
+}

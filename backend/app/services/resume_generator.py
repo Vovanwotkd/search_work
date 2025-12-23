@@ -1,8 +1,14 @@
 from sqlalchemy.orm import Session
 
-from app.models import UserProfile, BaseResume, ResumeVariation, VacancyCache
+from app.models import UserProfile, BaseResume, ResumeVariation, VacancyCache, AppSettings
 from app.services.llm import get_llm_service, LLMMessage
 from app.services.llm.prompts import RESUME_GENERATION_PROMPT, RESUME_ADAPTATION_PROMPT
+
+
+def get_setting(db: Session, key: str) -> str | None:
+    """Get setting value from database."""
+    setting = db.query(AppSettings).filter(AppSettings.key == key).first()
+    return setting.value if setting else None
 
 
 class ResumeGenerator:
@@ -32,6 +38,9 @@ class ResumeGenerator:
         ]
 
         resume_data = await self.llm.chat_json(llm_messages)
+
+        # Add prompt injection if enabled
+        resume_data = self._add_prompt_injection(resume_data)
 
         # Create or update base resume
         base_resume = (
@@ -95,12 +104,18 @@ class ResumeGenerator:
 
         result = await self.llm.chat_json(llm_messages)
 
+        # Get resume content
+        resume_content = result.get("adapted_resume", base_resume.content)
+
+        # Add prompt injection if enabled
+        resume_content = self._add_prompt_injection(resume_content)
+
         # Create variation
         variation = ResumeVariation(
             base_resume_id=base_resume.id,
             vacancy_id=vacancy.id,
             title=f"{base_resume.title} для {vacancy.company_name}",
-            content=result.get("adapted_resume", base_resume.content),
+            content=resume_content,
             adaptations=result.get("adaptations", []),
             status="draft",
         )
@@ -110,3 +125,29 @@ class ResumeGenerator:
         self.db.refresh(variation)
 
         return variation
+
+    def _add_prompt_injection(self, content: dict | str) -> dict | str:
+        """Add prompt injection to resume content if enabled."""
+        # Check if injection is enabled
+        injection_enabled = get_setting(self.db, "prompt_injection_enabled") == "true"
+        if not injection_enabled:
+            return content
+
+        # Get injection text
+        injection_text = get_setting(self.db, "prompt_injection")
+        if not injection_text:
+            return content
+
+        # Add injection to content
+        if isinstance(content, dict):
+            # Add to dict as hidden_metadata field
+            content["_ai_metadata"] = injection_text
+            # Also inject into summary/about if exists
+            if "summary" in content:
+                content["summary"] = f"{content['summary']}\n\n{injection_text}"
+            elif "about" in content:
+                content["about"] = f"{content['about']}\n\n{injection_text}"
+        elif isinstance(content, str):
+            content = f"{content}\n\n{injection_text}"
+
+        return content

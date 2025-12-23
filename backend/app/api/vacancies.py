@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from typing import Optional
+import re
 
 from app.database import get_db
 from app.api.deps import get_current_user, get_current_user_with_hh
-from app.models import User, UserProfile, VacancyCache
+from app.models import User, UserProfile, VacancyCache, BaseResume
 from app.schemas.vacancy import VacancyResponse, VacancyMatchResponse
 from app.services.hh_client import HHClient
 from app.services.vacancy_analyzer import VacancyAnalyzer
@@ -119,7 +120,7 @@ async def search_vacancies(
         )
 
 
-@router.get("/vacancies/{vacancy_id}")
+@router.get("/vacancies/{vacancy_id}", response_model=VacancyResponse)
 async def get_vacancy(
     vacancy_id: int,
     db: Session = Depends(get_db),
@@ -216,3 +217,220 @@ async def analyze_vacancy(
         missing_skills=result.get("missing_skills", []),
         recommendations=result.get("recommendations", []),
     )
+
+
+# ============ HH.ru Resumes ============
+
+
+@router.get("/resumes/mine")
+async def get_hh_resumes(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Get user's resumes from HH.ru."""
+    if not user.hh_access_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="HH.ru not connected. Please authorize first.",
+        )
+
+    client = HHClient(
+        access_token=user.hh_access_token,
+        refresh_token=user.hh_refresh_token,
+    )
+
+    try:
+        result = await client.get_my_resumes()
+
+        # Save new tokens if refreshed
+        if client.new_tokens:
+            user.hh_access_token = client.new_tokens.get("access_token")
+            user.hh_refresh_token = client.new_tokens.get("refresh_token")
+            db.commit()
+
+        resumes = []
+        for item in result.get("items", []):
+            resumes.append({
+                "id": item.get("id"),
+                "title": item.get("title"),
+                "status": item.get("status", {}).get("name"),
+                "created_at": item.get("created_at"),
+                "updated_at": item.get("updated_at"),
+                "url": item.get("alternate_url"),
+                "total_views": item.get("total_views", 0),
+            })
+
+        return {"resumes": resumes}
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch resumes from HH.ru: {str(e)}",
+        )
+
+
+@router.get("/resumes/{resume_id}")
+async def get_hh_resume(
+    resume_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Get specific resume from HH.ru."""
+    if not user.hh_access_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="HH.ru not connected. Please authorize first.",
+        )
+
+    client = HHClient(
+        access_token=user.hh_access_token,
+        refresh_token=user.hh_refresh_token,
+    )
+
+    try:
+        resume = await client.get_resume(resume_id)
+
+        # Save new tokens if refreshed
+        if client.new_tokens:
+            user.hh_access_token = client.new_tokens.get("access_token")
+            user.hh_refresh_token = client.new_tokens.get("refresh_token")
+            db.commit()
+
+        return resume
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch resume from HH.ru: {str(e)}",
+        )
+
+
+def strip_html(text: str) -> str:
+    """Remove HTML tags from text."""
+    if not text:
+        return ""
+    return re.sub(r'<[^>]+>', '', text)
+
+
+@router.post("/resumes/{resume_id}/import")
+async def import_hh_resume(
+    resume_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Import resume from HH.ru as base resume."""
+    if not user.hh_access_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="HH.ru not connected. Please authorize first.",
+        )
+
+    client = HHClient(
+        access_token=user.hh_access_token,
+        refresh_token=user.hh_refresh_token,
+    )
+
+    try:
+        hh_resume = await client.get_resume(resume_id)
+
+        # Save new tokens if refreshed
+        if client.new_tokens:
+            user.hh_access_token = client.new_tokens.get("access_token")
+            user.hh_refresh_token = client.new_tokens.get("refresh_token")
+
+        # Deactivate old base resumes
+        db.query(BaseResume).filter(
+            BaseResume.user_id == user.id,
+            BaseResume.is_active == True
+        ).update({"is_active": False})
+
+        # Extract skills from HH resume
+        skills = [s.get("name") for s in hh_resume.get("skill_set", [])]
+
+        # Extract experience
+        experience = []
+        for exp in hh_resume.get("experience", []):
+            experience.append({
+                "company": exp.get("company"),
+                "position": exp.get("position"),
+                "start": exp.get("start"),
+                "end": exp.get("end"),
+                "description": strip_html(exp.get("description", "")),
+            })
+
+        # Extract education
+        education = []
+        for edu in hh_resume.get("education", {}).get("primary", []):
+            education.append({
+                "name": edu.get("name"),
+                "organization": edu.get("organization"),
+                "result": edu.get("result"),
+                "year": edu.get("year"),
+            })
+
+        # Create base resume
+        base_resume = BaseResume(
+            user_id=user.id,
+            title=hh_resume.get("title"),
+            content={
+                "title": hh_resume.get("title"),
+                "first_name": hh_resume.get("first_name"),
+                "last_name": hh_resume.get("last_name"),
+                "birth_date": hh_resume.get("birth_date"),
+                "area": hh_resume.get("area", {}).get("name"),
+                "salary": hh_resume.get("salary"),
+                "skills": skills,
+                "experience": experience,
+                "education": education,
+                "about": strip_html(hh_resume.get("skills", "")),
+                "contacts": {
+                    "email": next(
+                        (c.get("value", {}).get("formatted") for c in hh_resume.get("contact", [])
+                         if c.get("type", {}).get("id") == "email"),
+                        None
+                    ),
+                    "phone": next(
+                        (c.get("value", {}).get("formatted") for c in hh_resume.get("contact", [])
+                         if c.get("type", {}).get("id") == "cell"),
+                        None
+                    ),
+                },
+                "hh_resume_id": resume_id,
+                "raw_hh_data": hh_resume,
+            },
+            is_active=True,
+        )
+        db.add(base_resume)
+
+        # Also update or create user profile with skills
+        profile = db.query(UserProfile).filter(UserProfile.user_id == user.id).first()
+        if profile:
+            profile.skills = skills
+            profile.preferred_position = hh_resume.get("title")
+            if hh_resume.get("salary"):
+                profile.preferred_salary_min = hh_resume.get("salary", {}).get("amount")
+        else:
+            profile = UserProfile(
+                user_id=user.id,
+                skills=skills,
+                preferred_position=hh_resume.get("title"),
+                preferred_salary_min=hh_resume.get("salary", {}).get("amount") if hh_resume.get("salary") else None,
+            )
+            db.add(profile)
+
+        db.commit()
+        db.refresh(base_resume)
+
+        return {
+            "message": "Resume imported successfully",
+            "resume_id": base_resume.id,
+            "title": base_resume.title,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to import resume: {str(e)}",
+        )

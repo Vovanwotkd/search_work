@@ -25,7 +25,15 @@
       "Bash(powershell -Command \"Set-Location 'c:\\\\Users\\\\vovan\\\\work\\\\search_work\\\\backend'; python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000\":*)",
       "Bash(git -C \"c:/Users/vovan/work/search_work\" diff --stat)",
       "Bash(git -C \"c:/Users/vovan/work/search_work\" commit -m \"$\\(cat <<''EOF''\nfeat: add model selection and fix HH.ru API integration\n\nModel Selection:\n- Add model dropdown in settings UI \\(Claude and OpenAI models\\)\n- Store selected model in database\n- All LLM services now use selected provider/model from DB\n\nHH.ru API Fixes:\n- Fix User-Agent header \\(HH-User-Agent with email required\\)\n- Add automatic token refresh on 403\n- Fallback to public API for vacancy search if auth fails\n- Add logging for debugging\n\nOther:\n- Fix double /api prefix in frontend client\n- Add logging to interview service\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
-      "Bash(git -C \"c:/Users/vovan/work/search_work\" add backend frontend .claude)"
+      "Bash(git -C \"c:/Users/vovan/work/search_work\" add backend frontend .claude)",
+      "Bash(powershell -Command \"cd ''c:\\\\Users\\\\vovan\\\\work\\\\search_work\\\\backend''; python -c ''from app.api import vacancies; print\\(\"\"OK\"\"\\)''\")",
+      "Bash(powershell -Command \"cd ''c:\\\\Users\\\\vovan\\\\work\\\\search_work\\\\backend''; python -c ''from app.api import vacancies''\")",
+      "Bash(powershell -Command \"Start-Sleep -Seconds 5; curl.exe -s http://localhost:8000/api/hh/resumes/mine -H ''Cookie: session=test''\")",
+      "Bash(powershell -Command \"curl.exe -s http://localhost:8000/api/settings/prompts -H ''Cookie: session=test'' 2>&1 | Select-Object -First 20\")",
+      "Bash(powershell -Command \"curl.exe -s http://localhost:5173 2>&1 | Select-Object -First 5\")",
+      "Bash(powershell -Command \"curl.exe -s http://localhost:8000/health\")",
+      "Bash(powershell -Command \"curl.exe -s http://localhost:8000/api/settings/prompts -H ''Cookie: session=test''\")",
+      "Bash(git -C \"c:/Users/vovan/work/search_work\" commit -m \"$\\(cat <<''EOF''\nfeat: add customizable prompts, HH resume import, and vacancy modal\n\nPrompts:\n- Add API endpoints for customizable interview prompts\n- Interview system prompt and first message editable via settings\n- Add prompt injection feature for AI resume screeners\n- Settings UI with toggle for prompt injection\n\nHH.ru Integration:\n- Add endpoints to fetch user''s resumes from HH.ru\n- Import resume as base resume with profile update\n- Fix token refresh \\(add client_id/client_secret\\)\n\nVacancies:\n- Add modal for viewing full vacancy details\n- Show company info, salary, requirements, skills\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
     ]
   }
 }
