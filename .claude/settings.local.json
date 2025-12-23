@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C \"c:/Users/vovan/work/search_work\" log --oneline -3)",
+      "Bash(git -C \"c:/Users/vovan/work/search_work\" add ARCHITECTURE.md)",
+      "Bash(git -C \"c:/Users/vovan/work/search_work\" commit -m \"$\\(cat <<''EOF''\ndocs: add architecture and development phases documentation\n\n- Define tech stack: Vue 3 + FastAPI + SQLite + Docker\n- Design database schema for profiles, resumes, vacancies\n- Document API endpoints structure\n- Plan 5 development phases from MVP to polish\n- Include UI/UX flow mockups\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git -C \"c:/Users/vovan/work/search_work\" config user.email \"ivlych@inbox.ru\")",
+      "Bash(git -C \"c:/Users/vovan/work/search_work\" config user.name \"Vovan\")",
+      "Bash(git -C \"c:/Users/vovan/work/search_work\" push -u origin main)",
+      "Bash(git -C \"c:/Users/vovan/work/search_work\" status --short)",
+      "Bash(git -C \"c:/Users/vovan/work/search_work\" add -A)"
+    ]
+  }
+}
