@@ -10,7 +10,7 @@ class CoverLetterService:
 
     def __init__(self, db: Session):
         self.db = db
-        self.llm = get_llm_service()
+        self.llm = get_llm_service(db=db)
 
     async def generate(
         self, profile: UserProfile, vacancy: VacancyCache

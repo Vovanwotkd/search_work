@@ -1,5 +1,15 @@
 from pydantic_settings import BaseSettings
 from typing import Literal
+from pathlib import Path
+
+
+# Find .env file (in backend/ or parent directory)
+def find_env_file():
+    current = Path(__file__).parent.parent  # backend/
+    for path in [current / ".env", current.parent / ".env"]:
+        if path.exists():
+            return path
+    return None
 
 
 class Settings(BaseSettings):
@@ -19,9 +29,10 @@ class Settings(BaseSettings):
     llm_provider: Literal["claude", "openai"] = "claude"
     claude_api_key: str = ""
     openai_api_key: str = ""
+    llm_model: str = ""  # If empty, use default for provider
 
     class Config:
-        env_file = ".env"
+        env_file = find_env_file()
         extra = "ignore"
 
 

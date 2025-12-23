@@ -8,7 +8,24 @@
       "Bash(git -C \"c:/Users/vovan/work/search_work\" config user.name \"Vovan\")",
       "Bash(git -C \"c:/Users/vovan/work/search_work\" push -u origin main)",
       "Bash(git -C \"c:/Users/vovan/work/search_work\" status --short)",
-      "Bash(git -C \"c:/Users/vovan/work/search_work\" add -A)"
+      "Bash(git -C \"c:/Users/vovan/work/search_work\" add -A)",
+      "Bash(git -C \"c:/Users/vovan/work/search_work\" commit -m \"$\\(cat <<''EOF''\nfeat: implement Phase 1 - Foundation \\(MVP Core\\)\n\nBackend \\(FastAPI\\):\n- SQLite database with SQLAlchemy models\n- LLM Service with Claude/OpenAI providers abstraction\n- Interview Service for chat-based profile building\n- HH.ru API client for vacancies and resumes\n- Vacancy Analyzer and Resume Generator services\n- Cover Letter generation service\n- API endpoints: auth, chat, profile, vacancies, resumes, settings\n\nFrontend \\(Vue 3 + Vite\\):\n- Pinia stores for state management\n- Chat interface for LLM interviews\n- Profile view with extracted data display\n- Vacancies search with match scoring\n- Resume management with variations\n- Settings page for LLM provider selection\n\nInfrastructure:\n- Docker Compose configuration\n- Environment configuration\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git -C \"c:/Users/vovan/work/search_work\" push)",
+      "Bash(pip install:*)",
+      "Bash(uvicorn:*)",
+      "Bash(npm install)",
+      "Bash(npm run dev:*)",
+      "Bash(curl:*)",
+      "Bash(python -c:*)",
+      "Bash(timeout /t 5)",
+      "Bash(findstr:*)",
+      "Bash(taskkill:*)",
+      "Bash(powershell -Command \"Get-Process -Name python -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep -Seconds 2\")",
+      "Bash(powershell -Command \"Start-Sleep -Seconds 5; curl.exe -s http://localhost:8000/api/settings -H ''Cookie: session=test''\")",
+      "Bash(powershell -Command \"Set-Location 'c:\\\\Users\\\\vovan\\\\work\\\\search_work\\\\backend'; python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000\":*)",
+      "Bash(git -C \"c:/Users/vovan/work/search_work\" diff --stat)",
+      "Bash(git -C \"c:/Users/vovan/work/search_work\" commit -m \"$\\(cat <<''EOF''\nfeat: add model selection and fix HH.ru API integration\n\nModel Selection:\n- Add model dropdown in settings UI \\(Claude and OpenAI models\\)\n- Store selected model in database\n- All LLM services now use selected provider/model from DB\n\nHH.ru API Fixes:\n- Fix User-Agent header \\(HH-User-Agent with email required\\)\n- Add automatic token refresh on 403\n- Fallback to public API for vacancy search if auth fails\n- Add logging for debugging\n\nOther:\n- Fix double /api prefix in frontend client\n- Add logging to interview service\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git -C \"c:/Users/vovan/work/search_work\" add backend frontend .claude)"
     ]
   }
 }

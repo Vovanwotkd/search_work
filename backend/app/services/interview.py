@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 from sqlalchemy.orm import Session
 
@@ -9,13 +10,15 @@ from app.services.llm.prompts import (
     PROFILE_EXTRACTION_PROMPT,
 )
 
+logger = logging.getLogger(__name__)
+
 
 class InterviewService:
     """Service for conducting LLM-powered interviews."""
 
     def __init__(self, db: Session):
         self.db = db
-        self.llm = get_llm_service()
+        self.llm = get_llm_service(db=db)
 
     def get_or_create_session(self, user_id: int) -> InterviewSession:
         """Get active session or create new one."""
@@ -51,8 +54,10 @@ class InterviewService:
 
     async def send_message(self, session: InterviewSession, user_message: str) -> str:
         """Process user message and get LLM response."""
+        logger.info(f"Processing message for session {session.id}: {user_message[:50]}...")
+
         # Add user message to history
-        messages = session.messages or []
+        messages = list(session.messages or [])
         messages.append(
             {
                 "role": "user",
@@ -67,7 +72,13 @@ class InterviewService:
             llm_messages.append(LLMMessage(role=msg["role"], content=msg["content"]))
 
         # Get LLM response
-        response = await self.llm.chat(llm_messages)
+        try:
+            logger.info(f"Calling LLM ({self.llm.provider_name}, model: {self.llm.model})...")
+            response = await self.llm.chat(llm_messages)
+            logger.info(f"LLM response received: {response[:50]}...")
+        except Exception as e:
+            logger.error(f"LLM call failed: {e}")
+            raise
 
         # Add assistant response to history
         messages.append(
@@ -82,6 +93,7 @@ class InterviewService:
         session.messages = messages
         session.updated_at = datetime.utcnow()
         self.db.commit()
+        logger.info(f"Session updated, total messages: {len(messages)}")
 
         return response
 

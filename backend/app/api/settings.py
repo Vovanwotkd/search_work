@@ -6,6 +6,7 @@ from app.api.deps import get_current_user
 from app.models import User, AppSettings
 from app.schemas.settings import SettingsResponse, SettingsUpdate
 from app.config import settings as app_settings
+from app.services.llm import CLAUDE_MODELS, OPENAI_MODELS
 
 router = APIRouter()
 
@@ -34,6 +35,7 @@ async def get_settings(
 ):
     """Get current settings."""
     llm_provider = get_setting(db, "llm_provider") or app_settings.llm_provider
+    llm_model = get_setting(db, "llm_model") or app_settings.llm_model or None
 
     # Check if API keys are set (in DB or env)
     claude_key_db = get_setting(db, "claude_api_key")
@@ -44,9 +46,14 @@ async def get_settings(
 
     return SettingsResponse(
         llm_provider=llm_provider,
+        llm_model=llm_model,
         hh_connected=bool(user.hh_access_token),
         has_claude_key=has_claude,
         has_openai_key=has_openai,
+        available_models={
+            "claude": CLAUDE_MODELS,
+            "openai": OPENAI_MODELS,
+        },
     )
 
 
@@ -59,6 +66,9 @@ async def update_settings(
     """Update settings."""
     if data.llm_provider:
         set_setting(db, "llm_provider", data.llm_provider)
+
+    if data.llm_model is not None:
+        set_setting(db, "llm_model", data.llm_model)
 
     if data.claude_api_key:
         set_setting(db, "claude_api_key", data.claude_api_key)

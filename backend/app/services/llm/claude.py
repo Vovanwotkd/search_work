@@ -7,10 +7,10 @@ from app.services.llm.base import LLMProvider, LLMMessage
 class ClaudeProvider(LLMProvider):
     """Claude (Anthropic) LLM provider."""
 
-    def __init__(self, api_key: str):
+    def __init__(self, api_key: str, model: str = None):
         super().__init__(api_key)
         self.client = AsyncAnthropic(api_key=api_key)
-        self.model = "claude-sonnet-4-20250514"
+        self.model = model or "claude-sonnet-4-20250514"
 
     @property
     def provider_name(self) -> str:

@@ -1,8 +1,11 @@
 import httpx
+import logging
 from typing import Any
 from datetime import datetime, timedelta
 
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class HHClient:
@@ -11,8 +14,13 @@ class HHClient:
     BASE_URL = "https://api.hh.ru"
     OAUTH_URL = "https://hh.ru/oauth"
 
-    def __init__(self, access_token: str | None = None):
+    # Endpoints that can work without auth
+    PUBLIC_ENDPOINTS = ["/vacancies", "/areas", "/dictionaries"]
+
+    def __init__(self, access_token: str | None = None, refresh_token: str | None = None):
         self.access_token = access_token
+        self.refresh_token = refresh_token
+        self.new_tokens = None  # Store refreshed tokens for caller to save
 
     def get_auth_url(self) -> str:
         """Get OAuth authorization URL."""
@@ -53,22 +61,51 @@ class HHClient:
             response.raise_for_status()
             return response.json()
 
-    def _headers(self) -> dict:
+    def _headers(self, with_auth: bool = True) -> dict:
         """Get headers for API requests."""
-        headers = {"User-Agent": "JobSearchAssistant/1.0"}
-        if self.access_token:
+        # HH.ru requires HH-User-Agent header with email for API access
+        headers = {"HH-User-Agent": "JobSearchAssistant/1.0 (ivlych@inbox.ru)"}
+        if with_auth and self.access_token:
             headers["Authorization"] = f"Bearer {self.access_token}"
         return headers
 
-    async def _request(self, method: str, endpoint: str, **kwargs) -> Any:
-        """Make API request."""
+    def _is_public_endpoint(self, endpoint: str) -> bool:
+        """Check if endpoint is public (works without auth)."""
+        return any(endpoint.startswith(pub) for pub in self.PUBLIC_ENDPOINTS)
+
+    async def _request(self, method: str, endpoint: str, require_auth: bool = False, **kwargs) -> Any:
+        """Make API request with automatic retry on auth failure."""
+        url = f"{self.BASE_URL}{endpoint}"
+
         async with httpx.AsyncClient() as client:
-            response = await client.request(
-                method,
-                f"{self.BASE_URL}{endpoint}",
-                headers=self._headers(),
-                **kwargs,
-            )
+            # First attempt with auth if available
+            headers = self._headers()
+            logger.info(f"HH API request: {method} {endpoint}")
+
+            response = await client.request(method, url, headers=headers, **kwargs)
+
+            # If 403 and we have refresh token, try to refresh
+            if response.status_code == 403 and self.refresh_token:
+                logger.info("Got 403, trying to refresh token...")
+                try:
+                    self.new_tokens = await self.refresh_tokens(self.refresh_token)
+                    self.access_token = self.new_tokens.get("access_token")
+                    self.refresh_token = self.new_tokens.get("refresh_token")
+
+                    # Retry with new token
+                    headers = self._headers()
+                    response = await client.request(method, url, headers=headers, **kwargs)
+                    logger.info(f"Retry after refresh: {response.status_code}")
+                except Exception as e:
+                    logger.warning(f"Token refresh failed: {e}")
+
+            # If still 403/400 and this is a public endpoint, try without auth
+            if response.status_code in (403, 400) and self._is_public_endpoint(endpoint):
+                logger.info("Trying public endpoint without auth...")
+                headers = self._headers(with_auth=False)
+                response = await client.request(method, url, headers=headers, **kwargs)
+                logger.info(f"Public request result: {response.status_code}")
+
             response.raise_for_status()
             return response.json()
 

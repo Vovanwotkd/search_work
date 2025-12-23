@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { settingsApi } from '@/api/settings'
 import { useAuthStore } from '@/stores/auth'
 import type { Settings } from '@/types'
@@ -10,15 +10,29 @@ const settings = ref<Settings | null>(null)
 const loading = ref(false)
 const saving = ref(false)
 
-const llmProvider = ref<'claude' | 'openai'>('claude')
+const llmProvider = ref<'claude' | 'openai'>('openai')
+const llmModel = ref('')
 const claudeKey = ref('')
 const openaiKey = ref('')
+
+const availableModels = computed(() => {
+  if (!settings.value) return []
+  return settings.value.available_models[llmProvider.value] || []
+})
+
+// When provider changes, reset model to first available
+watch(llmProvider, () => {
+  if (availableModels.value.length > 0) {
+    llmModel.value = availableModels.value[0]
+  }
+})
 
 onMounted(async () => {
   loading.value = true
   try {
     settings.value = await settingsApi.get()
     llmProvider.value = settings.value.llm_provider
+    llmModel.value = settings.value.llm_model || settings.value.available_models[llmProvider.value]?.[0] || ''
   } finally {
     loading.value = false
   }
@@ -27,7 +41,10 @@ onMounted(async () => {
 async function saveSettings() {
   saving.value = true
   try {
-    const data: any = { llm_provider: llmProvider.value }
+    const data: any = {
+      llm_provider: llmProvider.value,
+      llm_model: llmModel.value,
+    }
     if (claudeKey.value) data.claude_api_key = claudeKey.value
     if (openaiKey.value) data.openai_api_key = openaiKey.value
 
@@ -84,13 +101,25 @@ async function saveSettings() {
               </label>
               <label class="radio-option">
                 <input type="radio" v-model="llmProvider" value="openai" />
-                <span>OpenAI (GPT-4)</span>
+                <span>OpenAI</span>
                 <span v-if="settings?.has_openai_key" class="badge success">Ключ установлен</span>
               </label>
             </div>
           </div>
 
           <div class="form-group">
+            <label>Модель</label>
+            <select v-model="llmModel" class="model-select">
+              <option v-for="model in availableModels" :key="model" :value="model">
+                {{ model }}
+              </option>
+            </select>
+            <p class="hint" v-if="llmModel">
+              Текущая модель: <strong>{{ llmModel }}</strong>
+            </p>
+          </div>
+
+          <div class="form-group" v-if="llmProvider === 'claude'">
             <label>Claude API Key</label>
             <input
               v-model="claudeKey"
@@ -99,7 +128,7 @@ async function saveSettings() {
             />
           </div>
 
-          <div class="form-group">
+          <div class="form-group" v-if="llmProvider === 'openai'">
             <label>OpenAI API Key</label>
             <input
               v-model="openaiKey"
@@ -212,5 +241,24 @@ async function saveSettings() {
   border-radius: 9999px;
   font-size: 11px;
   margin-left: 8px;
+}
+
+.model-select {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 14px;
+  background: white;
+}
+
+.hint {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.hint strong {
+  color: var(--primary);
 }
 </style>

@@ -26,8 +26,11 @@ async def search_vacancies(
     user: User = Depends(get_current_user),
 ):
     """Search vacancies on HH.ru."""
-    # Use HH client (works without auth for public vacancies)
-    client = HHClient(access_token=user.hh_access_token)
+    # Use HH client with refresh token for auto-refresh
+    client = HHClient(
+        access_token=user.hh_access_token,
+        refresh_token=user.hh_refresh_token
+    )
 
     try:
         result = await client.search_vacancies(
@@ -40,6 +43,12 @@ async def search_vacancies(
             page=page,
             per_page=per_page,
         )
+
+        # Save new tokens if they were refreshed
+        if client.new_tokens:
+            user.hh_access_token = client.new_tokens.get("access_token")
+            user.hh_refresh_token = client.new_tokens.get("refresh_token")
+            db.commit()
 
         # Cache vacancies
         vacancies = []
@@ -127,9 +136,17 @@ async def get_vacancy(
 
     # Fetch full details from HH if needed
     if not vacancy.description or not vacancy.key_skills:
-        client = HHClient(access_token=user.hh_access_token)
+        client = HHClient(
+            access_token=user.hh_access_token,
+            refresh_token=user.hh_refresh_token
+        )
         try:
             details = await client.get_vacancy(vacancy.hh_vacancy_id)
+
+            # Save new tokens if refreshed
+            if client.new_tokens:
+                user.hh_access_token = client.new_tokens.get("access_token")
+                user.hh_refresh_token = client.new_tokens.get("refresh_token")
 
             vacancy.description = details.get("description")
             vacancy.requirements = details.get("description")  # Full description
@@ -168,9 +185,18 @@ async def analyze_vacancy(
 
     # Fetch full details if needed
     if not vacancy.key_skills:
-        client = HHClient(access_token=user.hh_access_token)
+        client = HHClient(
+            access_token=user.hh_access_token,
+            refresh_token=user.hh_refresh_token
+        )
         try:
             details = await client.get_vacancy(vacancy.hh_vacancy_id)
+
+            # Save new tokens if refreshed
+            if client.new_tokens:
+                user.hh_access_token = client.new_tokens.get("access_token")
+                user.hh_refresh_token = client.new_tokens.get("refresh_token")
+
             vacancy.description = details.get("description")
             vacancy.key_skills = [s.get("name") for s in details.get("key_skills", [])]
             vacancy.raw_data = details

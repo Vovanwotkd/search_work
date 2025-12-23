@@ -77,9 +77,14 @@ export interface ResumeVariation {
 
 export interface Settings {
   llm_provider: 'claude' | 'openai'
+  llm_model: string | null
   hh_connected: boolean
   has_claude_key: boolean
   has_openai_key: boolean
+  available_models: {
+    claude: string[]
+    openai: string[]
+  }
 }
 
 export interface AuthStatus {

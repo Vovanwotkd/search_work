@@ -247,7 +247,10 @@ async def publish_variation(
         # Add more fields as needed based on HH API requirements
     }
 
-    client = HHClient(access_token=user.hh_access_token)
+    client = HHClient(
+        access_token=user.hh_access_token,
+        refresh_token=user.hh_refresh_token
+    )
 
     try:
         if variation.hh_resume_id:
@@ -257,6 +260,11 @@ async def publish_variation(
             # Create new
             result = await client.create_resume(hh_resume_data)
             variation.hh_resume_id = result.get("id")
+
+        # Save new tokens if refreshed
+        if client.new_tokens:
+            user.hh_access_token = client.new_tokens.get("access_token")
+            user.hh_refresh_token = client.new_tokens.get("refresh_token")
 
         variation.status = "published"
         db.commit()

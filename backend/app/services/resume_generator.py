@@ -10,7 +10,7 @@ class ResumeGenerator:
 
     def __init__(self, db: Session):
         self.db = db
-        self.llm = get_llm_service()
+        self.llm = get_llm_service(db=db)
 
     async def generate_base_resume(self, profile: UserProfile) -> BaseResume:
         """Generate base resume from profile."""

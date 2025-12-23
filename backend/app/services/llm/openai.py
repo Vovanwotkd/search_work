@@ -7,10 +7,10 @@ from app.services.llm.base import LLMProvider, LLMMessage
 class OpenAIProvider(LLMProvider):
     """OpenAI LLM provider."""
 
-    def __init__(self, api_key: str):
+    def __init__(self, api_key: str, model: str = None):
         super().__init__(api_key)
         self.client = AsyncOpenAI(api_key=api_key)
-        self.model = "gpt-4o"
+        self.model = model or "gpt-4o"
 
     @property
     def provider_name(self) -> str:

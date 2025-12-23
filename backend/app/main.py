@@ -1,3 +1,4 @@
+import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -5,6 +6,12 @@ from contextlib import asynccontextmanager
 from app.config import settings
 from app.database import init_db
 from app.api import chat, settings as settings_api, auth, profile, vacancies, resumes
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
 
 
 @asynccontextmanager
