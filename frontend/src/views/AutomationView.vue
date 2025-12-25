@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { hhApi } from '@/api/vacancies'
+import { settingsApi } from '@/api/settings'
 import { automationApi, type Specialization, type AutomationConfig, type AutomationStatus } from '@/api/automation'
 
 // Steps
@@ -15,6 +16,12 @@ const loadingResumes = ref(false)
 const githubUsername = ref('')
 const analyzingGithub = ref(false)
 const githubSkills = ref<string[]>([])
+const hasGithubToken = ref(false)
+const githubAnalysisResult = ref<{
+  repos_analyzed: number
+  private_repos_analyzed: number
+  has_token: boolean
+} | null>(null)
 
 // Step 2: Search Config
 const cities = ref<{ id: string; name: string }[]>([])
@@ -52,6 +59,14 @@ onMounted(async () => {
 })
 
 async function loadInitialData() {
+  // Check GitHub token status
+  try {
+    const tokenStatus = await settingsApi.getGitHubToken()
+    hasGithubToken.value = tokenStatus.has_token
+  } catch {
+    // Ignore
+  }
+
   try {
     // Load HH resumes
     loadingResumes.value = true
@@ -116,6 +131,11 @@ async function analyzeGithub() {
   try {
     const result = await automationApi.analyzeGithub(githubUsername.value)
     githubSkills.value = result.skills
+    githubAnalysisResult.value = {
+      repos_analyzed: result.repos_analyzed,
+      private_repos_analyzed: result.private_repos_analyzed || 0,
+      has_token: result.has_token || false
+    }
     profileReady.value = true
   } catch (error: any) {
     alert(error.response?.data?.detail || 'Ошибка анализа GitHub')
@@ -291,6 +311,15 @@ function prevStep() {
       <div class="card">
         <h3>Анализ GitHub профиля</h3>
         <p class="hint">Добавим навыки из ваших репозиториев</p>
+
+        <div v-if="hasGithubToken" class="github-token-badge">
+          <span class="badge success">Токен установлен - доступ к приватным репо</span>
+        </div>
+        <div v-else class="github-token-badge">
+          <span class="badge warning">Только публичные репо</span>
+          <a href="/settings" class="link">Добавить токен в настройках</a>
+        </div>
+
         <div class="github-input">
           <input
             v-model="githubUsername"
@@ -304,6 +333,16 @@ function prevStep() {
             {{ analyzingGithub ? 'Анализ...' : 'Анализировать' }}
           </button>
         </div>
+
+        <div v-if="githubAnalysisResult" class="analysis-result">
+          <p>
+            Проанализировано репозиториев: <strong>{{ githubAnalysisResult.repos_analyzed }}</strong>
+            <span v-if="githubAnalysisResult.private_repos_analyzed > 0">
+              (из них приватных: {{ githubAnalysisResult.private_repos_analyzed }})
+            </span>
+          </p>
+        </div>
+
         <div v-if="githubSkills.length > 0" class="skills-found">
           <strong>Найденные навыки:</strong>
           <div class="skills-tags">
@@ -650,6 +689,51 @@ function prevStep() {
   padding: 4px 10px;
   border-radius: 12px;
   font-size: 13px;
+}
+
+/* GitHub Token Badge */
+.github-token-badge {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+}
+
+.github-token-badge .badge {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.badge.success {
+  background: #D1FAE5;
+  color: #059669;
+}
+
+.badge.warning {
+  background: #FEF3C7;
+  color: #B45309;
+}
+
+.github-token-badge .link {
+  font-size: 12px;
+  color: var(--primary);
+}
+
+.analysis-result {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: #F0FDF4;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.analysis-result p {
+  margin: 0;
 }
 
 /* Resume List */

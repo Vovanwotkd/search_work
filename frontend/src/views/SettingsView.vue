@@ -45,6 +45,15 @@ onMounted(async () => {
     settings.value = await settingsApi.get()
     llmProvider.value = settings.value.llm_provider
     llmModel.value = settings.value.llm_model || settings.value.available_models[llmProvider.value]?.[0] || ''
+
+    // Load GitHub token status
+    try {
+      const tokenStatus = await settingsApi.getGitHubToken()
+      hasGithubToken.value = tokenStatus.has_token
+      githubTokenPreview.value = tokenStatus.token_preview
+    } catch {
+      // Ignore
+    }
   } finally {
     loading.value = false
   }
@@ -156,6 +165,43 @@ async function resetPrompts() {
     alert('Промпты сброшены!')
   } catch {
     alert('Ошибка сброса промптов')
+  }
+}
+
+// GitHub Token
+const githubToken = ref('')
+const hasGithubToken = ref(false)
+const githubTokenPreview = ref<string | null>(null)
+const savingGithubToken = ref(false)
+
+async function saveGithubToken() {
+  if (!githubToken.value.trim()) {
+    alert('Введите токен')
+    return
+  }
+  savingGithubToken.value = true
+  try {
+    const result = await settingsApi.setGitHubToken(githubToken.value)
+    hasGithubToken.value = result.has_token
+    githubTokenPreview.value = result.token_preview
+    githubToken.value = ''
+    alert('GitHub токен сохранён!')
+  } catch {
+    alert('Ошибка сохранения токена')
+  } finally {
+    savingGithubToken.value = false
+  }
+}
+
+async function deleteGithubToken() {
+  if (!confirm('Удалить GitHub токен?')) return
+  try {
+    await settingsApi.deleteGitHubToken()
+    hasGithubToken.value = false
+    githubTokenPreview.value = null
+    alert('Токен удалён')
+  } catch {
+    alert('Ошибка удаления')
   }
 }
 </script>
@@ -310,6 +356,43 @@ async function resetPrompts() {
             :disabled="saving"
           >
             {{ saving ? 'Сохранение...' : 'Сохранить' }}
+          </button>
+        </div>
+      </div>
+
+      <!-- GitHub Token -->
+      <div class="section">
+        <h2>GitHub</h2>
+        <div class="card">
+          <p class="section-description">
+            Добавьте Personal Access Token для анализа приватных репозиториев
+          </p>
+
+          <div v-if="hasGithubToken" class="github-token-status">
+            <span class="status-badge success">Токен установлен</span>
+            <span class="token-preview" v-if="githubTokenPreview">{{ githubTokenPreview }}</span>
+            <button class="secondary small" @click="deleteGithubToken">Удалить</button>
+          </div>
+
+          <div class="form-group">
+            <label>GitHub Personal Access Token</label>
+            <input
+              v-model="githubToken"
+              type="password"
+              placeholder="ghp_xxxxxxxxxxxx"
+            />
+            <p class="hint">
+              Создайте токен на <a href="https://github.com/settings/tokens/new" target="_blank">github.com/settings/tokens</a>
+              с правами <code>repo</code> (для приватных репо)
+            </p>
+          </div>
+
+          <button
+            class="primary"
+            @click="saveGithubToken"
+            :disabled="savingGithubToken || !githubToken.trim()"
+          >
+            {{ savingGithubToken ? 'Сохранение...' : 'Сохранить токен' }}
           </button>
         </div>
       </div>
@@ -687,5 +770,39 @@ textarea:disabled {
   display: flex;
   gap: 12px;
   margin-top: 20px;
+}
+
+/* GitHub Token */
+.section-description {
+  color: var(--text-secondary);
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
+.github-token-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.token-preview {
+  font-family: monospace;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.hint a {
+  color: var(--primary);
+}
+
+.hint code {
+  background: var(--bg-secondary);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
 }
 </style>

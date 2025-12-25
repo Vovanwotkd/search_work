@@ -53,7 +53,12 @@
       "Bash(curl.exe:*)",
       "Bash(git -C \"c:/Users/vovan/work/search_work\" commit -m \"$\\(cat <<''EOF''\nfeat: add manual resume upload and improve Docker config\n\nManual Resume Upload:\n- Add textarea form in Settings for pasting resume text\n- LLM parses resume text and extracts structured data\n- Updates profile with skills, position, experience\n- Creates/updates base resume with parsed content\n\nDocker Improvements:\n- Multi-stage frontend build with nginx\n- Add nginx.conf with SPA routing and API proxy\n- Add volume for backend data persistence\n- Add restart policies\n\nHH.ru API Fixes:\n- Add /api/hh/me endpoint for raw user info\n- Improve error handling on 403 \\(permission denied\\)\n- Add get_resumes_safe method with detailed errors\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
       "Bash(docker-compose build:*)",
-      "Bash(git -C \"c:/Users/vovan/work/search_work\" commit -m \"$\\(cat <<''EOF''\nfix: typescript errors and update vue-tsc\n\n- Remove unused imports in chat.ts, AutomationView.vue\n- Fix type casting in ResumeView.vue\n- Update vue-tsc to 2.x for TypeScript 5 compatibility\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
+      "Bash(git -C \"c:/Users/vovan/work/search_work\" commit -m \"$\\(cat <<''EOF''\nfix: typescript errors and update vue-tsc\n\n- Remove unused imports in chat.ts, AutomationView.vue\n- Fix type casting in ResumeView.vue\n- Update vue-tsc to 2.x for TypeScript 5 compatibility\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(docker-compose logs:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(docker-compose ps:*)",
+      "Bash(docker-compose:*)",
+      "Bash(git -C \"c:/Users/vovan/work/search_work\" commit -m \"$\\(cat <<''EOF''\nfeat: add GitHub token for private repos and chat context awareness\n\nGitHub Token Support:\n- Add GitHub Personal Access Token management in Settings\n- GitHubAnalyzer uses token for /user/repos endpoint \\(private repos\\)\n- Show token status and private repos count in Automation view\n- Secure token storage in AppSettings with preview display\n\nInterview Context Awareness:\n- Chat now sees uploaded resume data as context\n- Add _get_profile_context\\(\\) to InterviewService\n- Profile data injected into system prompt for better responses\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
     ]
   }
 }

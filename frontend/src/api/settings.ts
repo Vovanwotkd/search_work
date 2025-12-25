@@ -42,4 +42,19 @@ export const settingsApi = {
     const response = await apiClient.post('/api/profile/parse-resume', { text })
     return response.data
   },
+
+  // GitHub Token
+  async getGitHubToken(): Promise<{ has_token: boolean; token_preview: string | null }> {
+    const response = await apiClient.get('/api/settings/github-token')
+    return response.data
+  },
+
+  async setGitHubToken(token: string): Promise<{ has_token: boolean; token_preview: string | null }> {
+    const response = await apiClient.put('/api/settings/github-token', { token })
+    return response.data
+  },
+
+  async deleteGitHubToken(): Promise<void> {
+    await apiClient.delete('/api/settings/github-token')
+  },
 }

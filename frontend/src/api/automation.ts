@@ -44,6 +44,8 @@ export interface GithubAnalysis {
   skills: string[]
   languages: string[]
   repos_analyzed: number
+  private_repos_analyzed: number
+  has_token: boolean
 }
 
 export const automationApi = {

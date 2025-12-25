@@ -61,6 +61,45 @@ class InterviewService:
         self.db.refresh(session)
         return session
 
+    def _get_profile_context(self, user_id: int) -> str | None:
+        """Get existing profile data as context for the interview."""
+        profile = self.db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
+        if not profile:
+            return None
+
+        context_parts = []
+
+        # Add parsed resume data if available
+        if profile.structured_profile and profile.structured_profile.get("parsed_resume"):
+            parsed = profile.structured_profile["parsed_resume"]
+            context_parts.append("ДАННЫЕ ИЗ ЗАГРУЖЕННОГО РЕЗЮМЕ:")
+            if parsed.get("preferred_position"):
+                context_parts.append(f"- Желаемая должность: {parsed['preferred_position']}")
+            if parsed.get("experience_years"):
+                context_parts.append(f"- Опыт работы: {parsed['experience_years']} лет")
+            if parsed.get("skills"):
+                context_parts.append(f"- Навыки: {', '.join(parsed['skills'][:15])}")
+            if parsed.get("summary"):
+                context_parts.append(f"- Описание: {parsed['summary']}")
+            if parsed.get("education"):
+                context_parts.append(f"- Образование: {parsed['education']}")
+        elif profile.skills or profile.preferred_position:
+            # Use profile fields directly if no parsed resume
+            context_parts.append("ДАННЫЕ ИЗ ПРОФИЛЯ:")
+            if profile.preferred_position:
+                context_parts.append(f"- Желаемая должность: {profile.preferred_position}")
+            if profile.experience_years:
+                context_parts.append(f"- Опыт работы: {profile.experience_years} лет")
+            if profile.skills:
+                context_parts.append(f"- Навыки: {', '.join(profile.skills[:15])}")
+            if profile.summary:
+                context_parts.append(f"- Описание: {profile.summary}")
+
+        if context_parts:
+            context_parts.append("\nИспользуй эту информацию как основу и уточняй детали в интервью.")
+            return "\n".join(context_parts)
+        return None
+
     async def send_message(self, session: InterviewSession, user_message: str) -> str:
         """Process user message and get LLM response."""
         logger.info(f"Processing message for session {session.id}: {user_message[:50]}...")
@@ -77,6 +116,12 @@ class InterviewService:
 
         # Build LLM messages with custom or default system prompt
         system_prompt = get_setting(self.db, "prompt_interview_system") or INTERVIEW_SYSTEM_PROMPT
+
+        # Add profile context if available
+        profile_context = self._get_profile_context(session.user_id)
+        if profile_context:
+            system_prompt = f"{system_prompt}\n\n{profile_context}"
+
         llm_messages = [LLMMessage(role="system", content=system_prompt)]
         for msg in messages:
             llm_messages.append(LLMMessage(role=msg["role"], content=msg["content"]))

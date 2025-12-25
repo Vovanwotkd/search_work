@@ -86,7 +86,11 @@ async def analyze_github(
     user: User = Depends(get_current_user),
 ):
     """Analyze GitHub profile to extract skills."""
-    analyzer = GitHubAnalyzer()
+    # Get GitHub token from settings if available
+    github_token = db.query(AppSettings).filter(AppSettings.key == "github_token").first()
+    token = github_token.value if github_token else None
+
+    analyzer = GitHubAnalyzer(token=token)
     try:
         result = await analyzer.analyze(request.username)
 

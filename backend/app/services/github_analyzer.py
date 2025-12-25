@@ -61,17 +61,32 @@ TECH_PATTERNS = {
 class GitHubAnalyzer:
     """Analyzes GitHub profile to extract skills and technologies."""
 
-    def __init__(self):
+    def __init__(self, token: str | None = None):
         self.base_url = "https://api.github.com"
+        self.token = token
+
+    def _headers(self) -> dict:
+        """Get headers for API requests."""
+        headers = {"Accept": "application/vnd.github.v3+json"}
+        if self.token:
+            headers["Authorization"] = f"Bearer {self.token}"
+        return headers
 
     async def analyze(self, username: str) -> dict:
         """Analyze a GitHub profile."""
         async with httpx.AsyncClient() as client:
-            # Get user info
-            user_response = await client.get(
-                f"{self.base_url}/users/{username}",
-                headers={"Accept": "application/vnd.github.v3+json"},
-            )
+            # Get user info (for authenticated user, use /user endpoint)
+            if self.token:
+                # With token we can get the authenticated user's private info
+                user_response = await client.get(
+                    f"{self.base_url}/user",
+                    headers=self._headers(),
+                )
+            else:
+                user_response = await client.get(
+                    f"{self.base_url}/users/{username}",
+                    headers=self._headers(),
+                )
 
             if user_response.status_code == 404:
                 raise ValueError(f"GitHub user '{username}' not found")
@@ -81,14 +96,24 @@ class GitHubAnalyzer:
 
             user_data = user_response.json()
 
-            # Get repositories
-            repos_response = await client.get(
-                f"{self.base_url}/users/{username}/repos",
-                params={"per_page": 100, "sort": "updated"},
-                headers={"Accept": "application/vnd.github.v3+json"},
-            )
+            # Get repositories (with token - includes private repos)
+            if self.token:
+                repos_response = await client.get(
+                    f"{self.base_url}/user/repos",
+                    params={"per_page": 100, "sort": "updated", "affiliation": "owner"},
+                    headers=self._headers(),
+                )
+            else:
+                repos_response = await client.get(
+                    f"{self.base_url}/users/{username}/repos",
+                    params={"per_page": 100, "sort": "updated"},
+                    headers=self._headers(),
+                )
 
             repos = repos_response.json() if repos_response.status_code == 200 else []
+
+            # Count private repos if using token
+            private_repos_count = sum(1 for r in repos if r.get("private", False))
 
             # Analyze languages
             languages = Counter()
@@ -181,12 +206,14 @@ class GitHubAnalyzer:
                 skills.add("Version Control")
 
             return {
-                "username": username,
+                "username": user_data.get("login", username),
                 "name": user_data.get("name") or username,
                 "bio": user_data.get("bio"),
                 "public_repos": user_data.get("public_repos", 0),
+                "private_repos_analyzed": private_repos_count,
                 "followers": user_data.get("followers", 0),
                 "languages": [lang for lang, _ in languages.most_common(10)],
                 "skills": sorted(list(skills)),
                 "repos_analyzed": len(repos),
+                "has_token": bool(self.token),
             }

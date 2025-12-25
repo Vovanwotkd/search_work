@@ -164,3 +164,55 @@ async def reset_prompts(
     db.commit()
 
     return {"message": "Prompts reset to defaults"}
+
+
+# ============ GitHub Token Settings ============
+
+
+class GitHubTokenRequest(BaseModel):
+    token: str
+
+
+class GitHubTokenResponse(BaseModel):
+    has_token: bool
+    token_preview: str | None = None
+
+
+@router.get("/github-token", response_model=GitHubTokenResponse)
+async def get_github_token(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Check if GitHub token is set."""
+    token = get_setting(db, "github_token")
+    return GitHubTokenResponse(
+        has_token=bool(token),
+        token_preview=f"{token[:8]}...{token[-4:]}" if token and len(token) > 12 else None
+    )
+
+
+@router.put("/github-token", response_model=GitHubTokenResponse)
+async def set_github_token(
+    data: GitHubTokenRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Set GitHub Personal Access Token."""
+    set_setting(db, "github_token", data.token)
+    return GitHubTokenResponse(
+        has_token=True,
+        token_preview=f"{data.token[:8]}...{data.token[-4:]}" if len(data.token) > 12 else None
+    )
+
+
+@router.delete("/github-token")
+async def delete_github_token(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Delete GitHub token."""
+    setting = db.query(AppSettings).filter(AppSettings.key == "github_token").first()
+    if setting:
+        db.delete(setting)
+        db.commit()
+    return {"message": "GitHub token deleted"}
