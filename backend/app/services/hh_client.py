@@ -215,6 +215,104 @@ class HHClient:
         """Get list of user's negotiations (applications)."""
         return await self._request("GET", "/negotiations")
 
-    async def get_specializations(self) -> list:
-        """Get list of specializations."""
-        return await self._request("GET", "/specializations")
+    async def get_professional_roles(self) -> dict:
+        """Get list of professional roles (job categories)."""
+        return await self._request("GET", "/professional_roles")
+
+    async def get_industries(self) -> list:
+        """Get list of industries."""
+        return await self._request("GET", "/industries")
+
+    async def search_vacancies_full(
+        self,
+        text: str | None = None,
+        area: list[str] | str | None = None,
+        salary: int | None = None,
+        only_with_salary: bool = False,
+        experience: str | None = None,
+        employment: list[str] | str | None = None,
+        schedule: list[str] | str | None = None,
+        professional_role: list[str] | str | None = None,
+        industry: list[str] | str | None = None,
+        search_field: list[str] | None = None,
+        period: int | None = None,
+        order_by: str = "relevance",
+        page: int = 0,
+        per_page: int = 100,
+    ) -> dict:
+        """Search vacancies with all filters."""
+        params = {"page": page, "per_page": per_page, "order_by": order_by}
+
+        if text:
+            params["text"] = text
+        if area:
+            if isinstance(area, list):
+                for a in area:
+                    params.setdefault("area", []).append(a)
+            else:
+                params["area"] = area
+        if salary:
+            params["salary"] = salary
+        if only_with_salary:
+            params["only_with_salary"] = "true"
+        if experience:
+            params["experience"] = experience
+        if employment:
+            if isinstance(employment, list):
+                for e in employment:
+                    params.setdefault("employment", []).append(e)
+            else:
+                params["employment"] = employment
+        if schedule:
+            if isinstance(schedule, list):
+                for s in schedule:
+                    params.setdefault("schedule", []).append(s)
+            else:
+                params["schedule"] = schedule
+        if professional_role:
+            if isinstance(professional_role, list):
+                for pr in professional_role:
+                    params.setdefault("professional_role", []).append(pr)
+            else:
+                params["professional_role"] = professional_role
+        if industry:
+            if isinstance(industry, list):
+                for i in industry:
+                    params.setdefault("industry", []).append(i)
+            else:
+                params["industry"] = industry
+        if search_field:
+            for sf in search_field:
+                params.setdefault("search_field", []).append(sf)
+        if period:
+            params["period"] = period
+
+        return await self._request("GET", "/vacancies", params=params)
+
+    async def export_all_vacancies(
+        self,
+        max_pages: int = 20,
+        **search_params
+    ) -> list[dict]:
+        """Export all vacancies matching search criteria (up to max_pages * 100)."""
+        all_vacancies = []
+        page = 0
+
+        while page < max_pages:
+            result = await self.search_vacancies_full(page=page, per_page=100, **search_params)
+            items = result.get("items", [])
+
+            if not items:
+                break
+
+            all_vacancies.extend(items)
+            logger.info(f"Loaded page {page + 1}, total: {len(all_vacancies)} vacancies")
+
+            # Check if we have more pages
+            pages = result.get("pages", 0)
+            if page + 1 >= pages:
+                break
+
+            page += 1
+
+        return all_vacancies
