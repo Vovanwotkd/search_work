@@ -32,9 +32,9 @@ class ResumeVariationResponse(BaseModel):
     hh_resume_id: str | None
     title: str | None
     content: dict | None
-    adaptations: dict | None
+    adaptations: list | dict | None
     cover_letter: str | None
-    status: Literal["draft", "published", "archived"]
+    status: Literal["draft", "published", "archived", "ready"]
     created_at: datetime
     updated_at: datetime
 

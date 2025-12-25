@@ -44,6 +44,21 @@ class InterviewService:
         # Get custom first message or use default
         first_message = get_setting(self.db, "prompt_interview_first") or INTERVIEW_FIRST_MESSAGE
 
+        # Check if user has profile data - create personalized greeting
+        profile = self.db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
+        if profile and (profile.preferred_position or profile.skills):
+            # Build personalized first message
+            greeting_parts = ["Привет! Вижу, что у тебя уже есть профиль:"]
+            if profile.preferred_position:
+                greeting_parts.append(f"- Позиция: {profile.preferred_position}")
+            if profile.experience_years:
+                greeting_parts.append(f"- Опыт: {profile.experience_years} лет")
+            if profile.skills:
+                top_skills = profile.skills[:5]
+                greeting_parts.append(f"- Навыки: {', '.join(top_skills)}")
+            greeting_parts.append("\nДавай уточним детали или дополним информацию. Что бы ты хотел добавить или изменить?")
+            first_message = "\n".join(greeting_parts)
+
         # Create new session with first message
         session = InterviewSession(
             user_id=user_id,
