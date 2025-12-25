@@ -31,6 +31,10 @@ const totalFound = ref(0)
 const currentPage = ref(0)
 const totalPages = ref(0)
 
+// Vacancy detail modal
+const selectedVacancy = ref<any>(null)
+const loadingDetail = ref(false)
+
 // Dialogs
 const showAreaDialog = ref(false)
 const showRolesDialog = ref(false)
@@ -202,6 +206,52 @@ const toggleRole = (id: string) => {
   if (idx >= 0) selectedRoles.value.splice(idx, 1)
   else selectedRoles.value.push(id)
 }
+
+// Category selection helpers
+const isCategorySelected = (cat: { roles: { id: string }[] }) => {
+  return cat.roles.every(r => selectedRoles.value.includes(r.id))
+}
+
+const isCategoryPartial = (cat: { roles: { id: string }[] }) => {
+  const selected = cat.roles.filter(r => selectedRoles.value.includes(r.id)).length
+  return selected > 0 && selected < cat.roles.length
+}
+
+const toggleCategory = (cat: { roles: { id: string }[] }) => {
+  const allSelected = isCategorySelected(cat)
+  if (allSelected) {
+    // Unselect all
+    cat.roles.forEach(r => {
+      const idx = selectedRoles.value.indexOf(r.id)
+      if (idx >= 0) selectedRoles.value.splice(idx, 1)
+    })
+  } else {
+    // Select all
+    cat.roles.forEach(r => {
+      if (!selectedRoles.value.includes(r.id)) {
+        selectedRoles.value.push(r.id)
+      }
+    })
+  }
+}
+
+// Vacancy detail
+const openVacancy = async (vacancy: Vacancy) => {
+  selectedVacancy.value = vacancy
+  loadingDetail.value = true
+  try {
+    const fullVacancy = await searchApi.getVacancyDetails(vacancy.id)
+    selectedVacancy.value = fullVacancy
+  } catch (e) {
+    console.error('Failed to load vacancy details:', e)
+  } finally {
+    loadingDetail.value = false
+  }
+}
+
+const closeVacancy = () => {
+  selectedVacancy.value = null
+}
 </script>
 
 <template>
@@ -334,7 +384,7 @@ const toggleRole = (id: string) => {
       <div v-else class="vacancy-list">
         <div v-for="v in vacancies" :key="v.id" class="vacancy-card">
           <div class="vacancy-header">
-            <a :href="v.alternate_url" target="_blank" class="vacancy-title">{{ v.name }}</a>
+            <span class="vacancy-title" @click="openVacancy(v)">{{ v.name }}</span>
             <span class="vacancy-salary">{{ formatSalary(v) }}</span>
           </div>
           <div class="vacancy-company">{{ v.employer.name }}</div>
@@ -388,15 +438,88 @@ const toggleRole = (id: string) => {
         <input v-model="roleSearch" type="text" placeholder="Поиск..." class="dialog-search" />
         <div class="dialog-content">
           <div v-for="cat in filteredRoles" :key="cat.id" class="role-category">
-            <div class="category-name">{{ cat.name }}</div>
-            <label v-for="role in cat.roles" :key="role.id" class="checkbox-label">
-              <input type="checkbox" :checked="selectedRoles.includes(role.id)" @change="toggleRole(role.id)" />
-              {{ role.name }}
+            <label class="category-header">
+              <input
+                type="checkbox"
+                :checked="isCategorySelected(cat)"
+                :indeterminate="isCategoryPartial(cat)"
+                @change="toggleCategory(cat)"
+              />
+              <span class="category-name">{{ cat.name }}</span>
             </label>
+            <div class="roles-list">
+              <label v-for="role in cat.roles" :key="role.id" class="checkbox-label role-item">
+                <input type="checkbox" :checked="selectedRoles.includes(role.id)" @change="toggleRole(role.id)" />
+                {{ role.name }}
+              </label>
+            </div>
           </div>
         </div>
         <div class="dialog-footer">
           <button class="btn-primary" @click="showRolesDialog = false">Применить</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Vacancy Detail Modal -->
+    <div v-if="selectedVacancy" class="dialog-overlay" @click.self="closeVacancy">
+      <div class="vacancy-modal">
+        <button class="close-btn modal-close" @click="closeVacancy">×</button>
+
+        <div v-if="loadingDetail" class="modal-loading">
+          Загрузка...
+        </div>
+
+        <div v-else class="vacancy-detail">
+          <h2 class="detail-title">{{ selectedVacancy.name }}</h2>
+          <p class="detail-company">{{ selectedVacancy.employer?.name }}</p>
+
+          <div class="detail-meta">
+            <div class="meta-item">
+              <span class="meta-label">Зарплата:</span>
+              <span>{{ formatSalary(selectedVacancy) }}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Локация:</span>
+              <span>{{ selectedVacancy.area?.name || 'Не указана' }}</span>
+            </div>
+            <div class="meta-item" v-if="selectedVacancy.experience">
+              <span class="meta-label">Опыт:</span>
+              <span>{{ selectedVacancy.experience?.name || selectedVacancy.experience }}</span>
+            </div>
+            <div class="meta-item" v-if="selectedVacancy.employment">
+              <span class="meta-label">Тип занятости:</span>
+              <span>{{ selectedVacancy.employment?.name || selectedVacancy.employment }}</span>
+            </div>
+            <div class="meta-item" v-if="selectedVacancy.schedule">
+              <span class="meta-label">График:</span>
+              <span>{{ selectedVacancy.schedule?.name || selectedVacancy.schedule }}</span>
+            </div>
+          </div>
+
+          <div v-if="selectedVacancy.key_skills?.length" class="detail-skills">
+            <h4>Ключевые навыки</h4>
+            <div class="skills-list">
+              <span v-for="skill in selectedVacancy.key_skills" :key="skill.name" class="skill-tag">
+                {{ skill.name || skill }}
+              </span>
+            </div>
+          </div>
+
+          <div v-if="selectedVacancy.description" class="detail-description">
+            <h4>Описание</h4>
+            <div v-html="selectedVacancy.description"></div>
+          </div>
+
+          <div class="detail-actions">
+            <a
+              :href="selectedVacancy.alternate_url"
+              target="_blank"
+              class="btn-primary"
+            >
+              Открыть на HH.ru
+            </a>
+          </div>
         </div>
       </div>
     </div>
@@ -580,7 +703,7 @@ h1 {
   font-size: 1.125rem;
   font-weight: 500;
   color: #0066cc;
-  text-decoration: none;
+  cursor: pointer;
 }
 
 .vacancy-title:hover {
@@ -697,15 +820,29 @@ h1 {
   padding: 0.75rem;
   border: 1px solid #ddd;
   border-radius: 8px;
+  width: calc(100% - 3rem);
+  box-sizing: border-box;
 }
 
 .dialog-content {
   flex: 1;
   overflow-y: auto;
   padding: 0 1.5rem 1rem;
+}
+
+.dialog-content .checkbox-label {
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: 0.5rem;
+  padding: 0.5rem 0;
+  cursor: pointer;
+  width: 100%;
+}
+
+.dialog-content .checkbox-label input[type="checkbox"] {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
 }
 
 .dialog-footer {
@@ -715,14 +852,189 @@ h1 {
 }
 
 .role-category {
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.category-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: #f8f9fa;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 0.25rem;
+  width: 100%;
+}
+
+.category-header:hover {
+  background: #eee;
+}
+
+.category-header input[type="checkbox"] {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
 }
 
 .category-name {
+  flex: 1;
+}
+
+.roles-list {
+  margin-left: 1.75rem;
+}
+
+.role-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0;
+  cursor: pointer;
+}
+
+.role-item input[type="checkbox"] {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+}
+
+.role-item:hover {
+  color: #0066cc;
+}
+
+/* Vacancy Modal */
+.vacancy-modal {
+  background: white;
+  border-radius: 12px;
+  max-width: 800px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  position: relative;
+  padding: 2rem;
+}
+
+.modal-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  font-size: 1.75rem;
+  line-height: 1;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+}
+
+.modal-loading {
+  text-align: center;
+  padding: 3rem;
+  color: #666;
+}
+
+.vacancy-detail {
+  padding-right: 1rem;
+}
+
+.detail-title {
+  font-size: 1.5rem;
   font-weight: 600;
-  color: #333;
   margin-bottom: 0.5rem;
-  padding-bottom: 0.25rem;
-  border-bottom: 1px solid #eee;
+  padding-right: 2rem;
+}
+
+.detail-company {
+  font-size: 1rem;
+  color: #666;
+  margin-bottom: 1.5rem;
+}
+
+.detail-meta {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.meta-label {
+  font-size: 0.75rem;
+  color: #888;
+  text-transform: uppercase;
+}
+
+.detail-skills {
+  margin-bottom: 1.5rem;
+}
+
+.detail-skills h4 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+
+.skills-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.skill-tag {
+  display: inline-block;
+  padding: 0.375rem 0.75rem;
+  background: #e8f4fc;
+  color: #0066cc;
+  border-radius: 1rem;
+  font-size: 0.8125rem;
+}
+
+.detail-description {
+  margin-bottom: 1.5rem;
+}
+
+.detail-description h4 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+
+.detail-description :deep(p) {
+  margin-bottom: 0.75rem;
+  line-height: 1.6;
+}
+
+.detail-description :deep(ul),
+.detail-description :deep(ol) {
+  margin-bottom: 0.75rem;
+  padding-left: 1.25rem;
+}
+
+.detail-description :deep(li) {
+  margin-bottom: 0.25rem;
+  line-height: 1.5;
+}
+
+.detail-actions {
+  display: flex;
+  gap: 0.75rem;
+  padding-top: 1rem;
+  border-top: 1px solid #eee;
+}
+
+.detail-actions .btn-primary {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
 }
 </style>
