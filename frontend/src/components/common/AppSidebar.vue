@@ -8,6 +8,7 @@ const authStore = useAuthStore()
 const navItems = [
   { path: '/chat', icon: '💬', label: 'Интервью' },
   { path: '/profile', icon: '👤', label: 'Профиль' },
+  { path: '/automation', icon: '🚀', label: 'Автоматизация' },
   { path: '/vacancies', icon: '🔍', label: 'Вакансии' },
   { path: '/resumes', icon: '📄', label: 'Резюме' },
   { path: '/settings', icon: '⚙️', label: 'Настройки' },

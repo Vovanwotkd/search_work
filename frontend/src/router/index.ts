@@ -32,6 +32,11 @@ const router = createRouter({
       name: 'settings',
       component: () => import('@/views/SettingsView.vue'),
     },
+    {
+      path: '/automation',
+      name: 'automation',
+      component: () => import('@/views/AutomationView.vue'),
+    },
   ],
 })
 

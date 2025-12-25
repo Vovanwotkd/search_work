@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 
 from app.config import settings
 from app.database import init_db
-from app.api import chat, settings as settings_api, auth, profile, vacancies, resumes
+from app.api import chat, settings as settings_api, auth, profile, vacancies, resumes, automation
 
 # Configure logging
 logging.basicConfig(
@@ -44,6 +44,7 @@ app.include_router(profile.router, prefix="/api/profile", tags=["profile"])
 app.include_router(vacancies.router, prefix="/api/hh", tags=["vacancies"])
 app.include_router(resumes.router, prefix="/api/resumes", tags=["resumes"])
 app.include_router(settings_api.router, prefix="/api/settings", tags=["settings"])
+app.include_router(automation.router, prefix="/api/automation", tags=["automation"])
 
 
 @app.get("/")

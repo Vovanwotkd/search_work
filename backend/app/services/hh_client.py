@@ -123,6 +123,8 @@ class HHClient:
         experience: str | None = None,
         employment: str | None = None,
         schedule: str | None = None,
+        specialization: str | None = None,
+        professional_role: str | None = None,
         page: int = 0,
         per_page: int = 20,
     ) -> dict:
@@ -141,6 +143,10 @@ class HHClient:
             params["employment"] = employment
         if schedule:
             params["schedule"] = schedule
+        if specialization:
+            params["specialization"] = specialization
+        if professional_role:
+            params["professional_role"] = professional_role
 
         return await self._request("GET", "/vacancies", params=params)
 
@@ -171,3 +177,26 @@ class HHClient:
     async def get_areas(self) -> list:
         """Get regions/areas list."""
         return await self._request("GET", "/areas")
+
+    async def apply_to_vacancy(
+        self,
+        vacancy_id: str,
+        resume_id: str | None = None,
+        message: str | None = None,
+    ) -> dict:
+        """Apply to a vacancy (send response/negotiation)."""
+        data = {"vacancy_id": vacancy_id}
+        if resume_id:
+            data["resume_id"] = resume_id
+        if message:
+            data["message"] = message
+
+        return await self._request("POST", "/negotiations", json=data)
+
+    async def get_negotiations(self) -> dict:
+        """Get list of user's negotiations (applications)."""
+        return await self._request("GET", "/negotiations")
+
+    async def get_specializations(self) -> list:
+        """Get list of specializations."""
+        return await self._request("GET", "/specializations")
