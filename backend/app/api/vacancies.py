@@ -219,6 +219,36 @@ async def analyze_vacancy(
     )
 
 
+# ============ HH.ru User Info ============
+
+
+@router.get("/me")
+async def get_hh_user_info(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Get current user info from HH.ru - raw data for debugging."""
+    if not user.hh_access_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="HH.ru не подключён",
+        )
+
+    client = HHClient(
+        access_token=user.hh_access_token,
+        refresh_token=user.hh_refresh_token,
+    )
+
+    try:
+        result = await client.get_me()
+        return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )
+
+
 # ============ HH.ru Resumes ============
 
 
@@ -231,7 +261,7 @@ async def get_hh_resumes(
     if not user.hh_access_token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="HH.ru not connected. Please authorize first.",
+            detail="HH.ru не подключён. Авторизуйтесь в настройках.",
         )
 
     client = HHClient(
@@ -240,13 +270,8 @@ async def get_hh_resumes(
     )
 
     try:
-        result = await client.get_my_resumes()
-
-        # Save new tokens if refreshed
-        if client.new_tokens:
-            user.hh_access_token = client.new_tokens.get("access_token")
-            user.hh_refresh_token = client.new_tokens.get("refresh_token")
-            db.commit()
+        # Use safer method with detailed error handling
+        result = await client.get_resumes_safe()
 
         resumes = []
         for item in result.get("items", []):
@@ -263,9 +288,15 @@ async def get_hh_resumes(
         return {"resumes": resumes}
 
     except Exception as e:
+        error_msg = str(e)
+        if "403" in error_msg or "Forbidden" in error_msg:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Нет доступа к резюме. Возможно, приложение HH.ru не имеет нужных разрешений. Попробуйте переподключить HH.ru в настройках.",
+            )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch resumes from HH.ru: {str(e)}",
+            detail=f"Ошибка загрузки резюме с HH.ru: {error_msg}",
         )
 
 

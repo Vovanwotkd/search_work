@@ -99,6 +99,29 @@ async function importResume(resumeId: string) {
   }
 }
 
+// Manual Resume Upload
+const manualResumeText = ref('')
+const parsingResume = ref(false)
+const showManualUpload = ref(false)
+
+async function parseManualResume() {
+  if (!manualResumeText.value.trim()) {
+    alert('Вставьте текст резюме')
+    return
+  }
+  parsingResume.value = true
+  try {
+    const result = await settingsApi.parseResumeText(manualResumeText.value)
+    alert(`Резюме успешно разобрано! Извлечено навыков: ${result.skills_count}`)
+    manualResumeText.value = ''
+    showManualUpload.value = false
+  } catch (error: any) {
+    alert(error.response?.data?.detail || 'Ошибка разбора резюме')
+  } finally {
+    parsingResume.value = false
+  }
+}
+
 // Prompts functions
 async function loadPrompts() {
   loadingPrompts.value = true
@@ -182,6 +205,41 @@ async function resetPrompts() {
                     {{ importingResumeId === resume.id ? 'Импорт...' : 'Импортировать' }}
                   </button>
                 </div>
+              </div>
+            </div>
+
+            <!-- Manual Resume Upload -->
+            <div class="manual-upload-section">
+              <div class="resumes-header">
+                <h4>Ручная загрузка резюме</h4>
+                <button
+                  class="secondary small"
+                  @click="showManualUpload = !showManualUpload"
+                >
+                  {{ showManualUpload ? 'Скрыть' : 'Вставить текст' }}
+                </button>
+              </div>
+              <p class="hint">Скопируйте текст резюме с HH.ru или другого источника</p>
+
+              <div v-if="showManualUpload" class="manual-upload-form">
+                <textarea
+                  v-model="manualResumeText"
+                  rows="10"
+                  placeholder="Вставьте сюда текст вашего резюме...
+
+Пример:
+Должность: Python Developer
+Опыт: 5 лет
+Навыки: Python, FastAPI, PostgreSQL, Docker
+О себе: ..."
+                ></textarea>
+                <button
+                  class="primary"
+                  @click="parseManualResume"
+                  :disabled="parsingResume || !manualResumeText.trim()"
+                >
+                  {{ parsingResume ? 'Обработка...' : 'Разобрать резюме' }}
+                </button>
               </div>
             </div>
 
@@ -501,6 +559,29 @@ async function resetPrompts() {
 button.small {
   padding: 6px 12px;
   font-size: 12px;
+}
+
+/* Manual Resume Upload */
+.manual-upload-section {
+  width: 100%;
+  margin: 16px 0;
+  padding: 16px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  border: 1px dashed var(--border);
+}
+
+.manual-upload-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.manual-upload-form textarea {
+  min-height: 200px;
+  font-family: monospace;
+  font-size: 13px;
 }
 
 /* Prompts Section */

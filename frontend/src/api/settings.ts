@@ -37,4 +37,9 @@ export const settingsApi = {
   async resetPrompts(): Promise<void> {
     await apiClient.post('/api/settings/prompts/reset')
   },
+
+  async parseResumeText(text: string): Promise<{ message: string; skills_count: number }> {
+    const response = await apiClient.post('/api/profile/parse-resume', { text })
+    return response.data
+  },
 }

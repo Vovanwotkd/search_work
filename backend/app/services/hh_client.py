@@ -32,6 +32,24 @@ class HHClient:
         query = "&".join(f"{k}={v}" for k, v in params.items())
         return f"{self.OAUTH_URL}/authorize?{query}"
 
+    async def get_resumes_safe(self) -> dict:
+        """Get user's resumes with better error handling."""
+        url = f"{self.BASE_URL}/resumes/mine"
+        async with httpx.AsyncClient() as client:
+            headers = self._headers()
+            logger.info(f"Getting resumes with token: {self.access_token[:20] if self.access_token else 'None'}...")
+
+            response = await client.get(url, headers=headers)
+            logger.info(f"Resumes response: {response.status_code}")
+
+            if response.status_code == 403:
+                error_data = response.json() if response.text else {}
+                logger.error(f"403 error details: {error_data}")
+                raise Exception(f"Доступ запрещён. Проверьте разрешения приложения HH.ru. Ответ: {error_data}")
+
+            response.raise_for_status()
+            return response.json()
+
     async def exchange_code(self, code: str) -> dict:
         """Exchange authorization code for tokens."""
         async with httpx.AsyncClient() as client:
