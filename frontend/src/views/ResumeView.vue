@@ -115,7 +115,7 @@ async function deleteVariation(id: number) {
             <div v-if="variation.adaptations" class="adaptations">
               <strong>Адаптации:</strong>
               <ul>
-                <li v-for="(adapt, i) in (variation.adaptations as any[])" :key="i">
+                <li v-for="(adapt, i) in (variation.adaptations as unknown as any[])" :key="i">
                   {{ adapt.field }}: {{ adapt.reason }}
                 </li>
               </ul>

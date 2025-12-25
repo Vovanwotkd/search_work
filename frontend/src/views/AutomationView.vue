@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { settingsApi } from '@/api/settings'
+import { ref, onMounted } from 'vue'
 import { hhApi } from '@/api/vacancies'
 import { automationApi, type Specialization, type AutomationConfig, type AutomationStatus } from '@/api/automation'
 
@@ -25,19 +24,15 @@ const selectedSpecs = ref<string[]>([])
 const loadingSpecs = ref(false)
 
 // Step 3: Vacancy Loading
-const loadingVacancies = ref(false)
 const vacanciesLoaded = ref(0)
 const vacanciesTotal = ref(0)
 
 // Step 4: Analysis
-const analyzingVacancies = ref(false)
 const analyzedCount = ref(0)
 const recommendations = ref<any[]>([])
 
 // Step 5: Resume Generation & Apply
-const generatingResumes = ref(false)
 const generatedCount = ref(0)
-const applying = ref(false)
 const appliedCount = ref(0)
 
 // Status

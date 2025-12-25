@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { chatApi } from '@/api/chat'
-import type { ChatSession, ChatMessage } from '@/types'
+import type { ChatSession } from '@/types'
 
 export const useChatStore = defineStore('chat', () => {
   const session = ref<ChatSession | null>(null)
